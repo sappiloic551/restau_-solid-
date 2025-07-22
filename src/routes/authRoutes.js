@@ -1,30 +1,18 @@
 const express = require('express');
 const router = express.Router();
+const authController = require('../controller/authController');
 
+// Route for user registration
+router.post('/register', authController.register);
 
-const { registerUser } = require('../controller/registerController');
-const { loginUser } = require('../controller/loginController');
-const { forgotPassword } = require('../controller/passwordController'); 
+// Route for user login
+router.post('/login', authController.login);
 
-// Middlewares
-const validate = require('../middlewear/validateInput');
-const { authLimiter } = require('../middlewear/rateLimiter');
+// Route to initiate password reset via email code
+router.post('/forgot-password', authController.forgotPassword);
 
-// Validation Schemas
-const { registerSchema, loginSchema, forgotSchema } = require('../utils/validationSchemas');
-
-// Registration route
-router.post('/register', validate(registerSchema), registerUser);
-
-//Login route with rate limiting
-router.post('/login', authLimiter, validate(loginSchema), loginUser);
-
-//Logout route
-router.post('/logout', (req, res) => {
-  res.json({ message: 'Logged out successfully.' });
-});
-
-//Forgot password route
-router.post('/forgot-password', authLimiter, validate(forgotSchema), forgotPassword);
+// Route to reset password using verification code
+router.post('/reset-password', authController.resetPassword);
 
 module.exports = router;
+

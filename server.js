@@ -1,38 +1,35 @@
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
+const rateLimit = require('express-rate-limit');
 const sequelize = require('./config/database');
-const Utilisateur = require('./src/models/Utilisateur'); 
-
 const authRoutes = require('./src/routes/authRoutes');
-const adminRoutes = require('./src/routes/adminRoutes');
-const passwordRoutes = require('./src/routes/passwordRoutes');
+const protectedRoutes = require('./src/routes/protectedRoutes');
+require('dotenv').config(); 
 
-const app = express();
+const app = express(); // 
 
-app.use(cors());
-app.use(express.json());
-
-
-app.get('/', (req, res) => {
-  res.send('API is working!');
+// Limit repeated requests to public APIs to prevent abuse
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100                  // limit each IP to 100 requests per windowMs
 });
 
-//Auth routes
-app.use('/api/auth', authRoutes);
+// Apply middleware
+const corsOptions = {
+  origin: 'http://localhost:5000'
+};
 
-//Admin-only routes
-app.use('/api/admin', adminRoutes);
-app.use('/api/password', passwordRoutes);
+app.use(cors(corsOptions));
+app.use(express.json());    // Parse incoming JSON requests
+app.use(limiter);           // Apply rate limiting
+app.use('/api/auth', authRoutes); // Mount auth routes at /api/auth
+app.use('/api/protected', protectedRoutes);
 
+// Sync Sequelize models with the database
+sequelize.sync()
+  .then(() => console.log('Database synced successfully'))
+  .catch(err => console.log('Database sync failed:', err));
 
-sequelize.sync({ alter: true }) 
-  .then(() => {
-    console.log('✅ Sequelize synced: Tables created/updated.');
-    app.listen(3000, () => {
-      console.log('🚀 Server running on http://localhost:3000');
-    });
-  })
-  .catch(err => {
-    console.error('❌ Unable to connect to the database:', err.message);
-  });
+// Start server on specified port
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));

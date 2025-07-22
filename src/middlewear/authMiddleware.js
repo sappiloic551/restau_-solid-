@@ -1,21 +1,26 @@
-const jwt = require('jsonwebtoken');
-const Utilisateur = require('../models/Utilisateur');
+const jwt = require ('jsonwebtoken');
+require ('dotenv').config();
 
-const authMiddleware = async (req, res, next) => {
-  const token = req.header('Authorization')?.split(' ')[1];
-  if (!token) return res.status(401).json({ message: 'Access denied. No token provided.' });
+//Middleware to check JWT token
+const verifyToken = (req, res, next) => {
+  const token = req.headers['authorization'];
+  if(!token) return res.status(403).json({message:'Access token required.'});
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await Utilisateur.findByPk(decoded.id);
-
-    if (!user) return res.status(404).json({ message: 'User not found.' });
-
-    req.user = user; 
-    next();
-  } catch (error) {
-    res.status(400).json({ message: 'Invalid token.', error: error.message });
+    const decoded = jwt.verifyToken(token.split (' ')[1], process.env.JWT_SECRET);
+    req.user = decoded; //Add user infoto request
+    next();// continue to route
+  } catch (err){
+    return res.status(401).json({message:'Invalid access token'});
   }
 };
 
-module.exports = authMiddleware;
+//Middleware torestrict access to admin role
+const isAdmin = (req, res, next) => {
+  if(req.user.role !== 'admin'){
+    return res.status(403).json ({message: 'Admin access only'});
+  }
+  next();
+};
+
+module.exports = {verifyToken, isAdmin};
