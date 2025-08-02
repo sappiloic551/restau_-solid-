@@ -15,7 +15,7 @@ const verifyToken = (req, res, next) => {
   }
 };
 
-//Middleware torestrict access to admin role
+//Middleware to restrict access to admin role
 const isAdmin = (req, res, next) => {
   if(req.user.role !== 'admin'){
     return res.status(403).json ({message: 'Admin access only'});
