@@ -1,17 +1,25 @@
 const jwt = require ('jsonwebtoken');
 require ('dotenv').config();
+const { isBlacklisted } = require('../utils/tokenBlacklist');
 
 //Middleware to check JWT token
 const verifyToken = (req, res, next) => {
-  const token = req.headers['authorization'];
-  if(!token) return res.status(403).json({message:'Access token required.'});
-
+  const authHeader = req.headers['authorization'];
+  if (!authHeader) return res.status(401).json({ message: 'Access token required.' });
+  const parts = authHeader.split(' ');
+  if (parts.length !== 2 || parts[0] !== 'Bearer') {
+    return res.status(401).json({ message: 'Invalid authorization header format' });
+  }
+  const token = parts[1];
+  if (isBlacklisted(token)) {
+    return res.status(401).json({ message: 'Token has been revoked' });
+  }
   try {
-    const decoded = jwt.verifyToken(token.split (' ')[1], process.env.JWT_SECRET);
-    req.user = decoded; //Add user infoto request
-    next();// continue to route
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded; // Attach user info to request
+    next();
   } catch (err){
-    return res.status(401).json({message:'Invalid access token'});
+    return res.status(401).json({message:'Invalid or expired access token'});
   }
 };
 
@@ -20,6 +28,7 @@ const isAdmin = (req, res, next) => {
   if(req.user.role !== 'admin'){
     return res.status(403).json ({message: 'Admin access only'});
   }
+  
   next();
 };
 

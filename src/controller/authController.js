@@ -3,6 +3,7 @@ const Joi = require('joi');
 const Utilisateur = require('../models/Utilisateur');
 const generateToken = require('../utils/generateToken');
 const sendVerificationCode = require('../utils/emailSender');
+const { blacklistToken } = require('../utils/tokenBlacklist');
 
 
 // Handles all authentication logic: register, login, reset password, etc.
@@ -23,16 +24,20 @@ const authController = {
 
     try {
       const hashedPassword = await bcrypt.hash(req.body.password, 10);
-      await Utilisateur.create({ ...req.body, password: hashedPassword });
-     // Save user and keep the result
-       const newUser = await Utilisateur.create({ ...req.body, password: hashedPassword });
-
-
-        // Generate JWT token for the new user
-    const token = generateToken(user); 
-
-
-      return res.status(201).json({ message: 'Registration successful' });
+      const newUser = await Utilisateur.create({ ...req.body, password: hashedPassword });
+      const token = generateToken(newUser);
+      return res.status(201).json({
+        success: true,
+        message: 'Registration successful',
+        token,
+        user: {
+          id: newUser.id,
+          name: newUser.name,
+          email: newUser.email,
+          telephone: newUser.telephone,
+          role: newUser.role
+        }
+      });
     } catch (err) {
       console.log('Registration error:', err);
       return res.status(500).json({ message: 'Server error', error: err });
@@ -40,7 +45,7 @@ const authController = {
   },
 
   // User Login
-  async login(req, res) {
+  async login(req, res) { 
     const schema = Joi.object({
       email: Joi.string().email().required(),
       password: Joi.string().required()
@@ -58,15 +63,16 @@ const authController = {
 
       const token = generateToken(user);
       return res.status(200).json({
+        success: true,
+        message: 'Login successful',
         token,
-        redirect: user.role === 'admin' ? '/dashboard' : '/home',
-         user: {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    telephone: user.telephone,
-    role: user.role
-  }
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          telephone: user.telephone,
+          role: user.role
+        }
       });
     } catch (err) {
       console.log('Login error:', err);
@@ -97,10 +103,10 @@ const authController = {
 
     try {
       await sendVerificationCode(user.email, code);
-      return res.status(200).json({ message: 'Verification code sent to your email' });
+      return res.status(200).json({ success: true, message: 'Verification code sent to your email' });
     } catch (err) {
       console.log('Email sending error:', err);
-      return res.status(500).json({ message: 'Failed to send email', error: err });
+      return res.status(500).json({ success: false, message: 'Failed to send email', error: err });
     }
   },
 
@@ -130,7 +136,20 @@ const authController = {
     user.resetPasswordExpires = null;
     await user.save();
 
-    return res.status(200).json({ message: 'Password successfully reset' });
+    return res.status(200).json({ success: true, message: 'Password successfully reset' });
+  },
+
+  // Logout: blacklist current token
+  async logout(req, res) {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader) return res.status(400).json({ message: 'Authorization header missing' });
+    const parts = authHeader.split(' ');
+    if (parts.length !== 2 || parts[0] !== 'Bearer') {
+      return res.status(400).json({ message: 'Invalid authorization header format' });
+    }
+    const token = parts[1];
+    blacklistToken(token);
+    return res.status(200).json({ success: true, message: 'Logged out successfully' });
   }
 };
 

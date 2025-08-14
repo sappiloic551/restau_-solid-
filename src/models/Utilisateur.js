@@ -37,7 +37,7 @@ const User = sequelize.define('User', {
   },
   resetPasswordToken: { 
     type: DataTypes.STRING,
-    field: 'resetPasswordtoken' 
+    field: 'resetPasswordToken' 
   },
   resetPasswordExpires: { 
     type: DataTypes.DATE,
